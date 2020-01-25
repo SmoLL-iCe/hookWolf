@@ -49,6 +49,14 @@ std::wstring utils::str_lower( std::wstring& str )
 	return str_dest;
 }
 
+std::string utils::str_lower( std::string& str )
+{
+	std::string str_dest {};
+	str_dest.resize( str.size( ) );
+	std::transform( str.begin( ), str.end( ), str_dest.begin( ), ::tolower );
+	return str_dest;
+}
+
 struct volume_info
 {
 	std::wstring letter {};
@@ -90,7 +98,7 @@ std::wstring utils::str_replace( std::wstring str, const std::wstring& from, con
 	while ( ( start_pos = str.find( from, start_pos ) ) != std::wstring::npos )
 	{
 		str.replace( start_pos, from.length( ), to );
-		start_pos += to.length( ); // Handles case where 'to' is a substring of 'from'
+		start_pos += to.length( ); 
 	}
 	return str;
 }

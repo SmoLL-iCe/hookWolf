@@ -9,31 +9,41 @@ int main()
 	auto pid = 0;
 	do
 	{
-		pid = utils::find_process_id( L"test_s64.exe" );
+		pid = utils::find_process_id( L"BlackDesert64.exe" );
 		Sleep( 100 );
 	} while ( !pid );
 	std::cout << "process found\n";
 	auto h_process = OpenProcess( PROCESS_ALL_ACCESS, false, pid );
-	std::cout << "handle: 0x" << h_process << "\n";
 
+	if ( !h_process || h_process == INVALID_HANDLE_VALUE )
+	{
+		std::cout << "invalid handle\n";
+		return getchar( );
+	}
+
+	std::cout << "loading modules ...\n";
 	auto modules = tools::load_modules( h_process );
-
+	std::cout << "modules loaded!\n";
 	if ( !modules )
 		return 5;
+
+	std::cout << "starting scan ...\n";
 	for ( auto mod : modules->all_modules( ) )
 	{
-		//printf("mod %p\n", mod->image().data());
-		auto rt_mod = new runtime::va_module( h_process, mod );
-		if ( !rt_mod->valid_pe( ) )
+		auto runtime_mod = new runtime::va_module( h_process, mod );
+		if ( !runtime_mod->valid_pe( ) )
 		{
-			delete rt_mod;
+			delete runtime_mod;
 			continue;
 		}
-		//rt_mod->check_import( modules );
-		rt_mod->check_export( );
+		std::cout << "import scan ...\n";
+		runtime_mod->check_import( modules );
+		std::cout << "export scan ...\n";
+		runtime_mod->check_export( );
+		std::cout << "sections scan ...\n";
+		runtime_mod->check_sections( );
 	}
 	modules->clean( );
-
 	printf( "end checks\n" );
 	CloseHandle(h_process);
 	return getchar();

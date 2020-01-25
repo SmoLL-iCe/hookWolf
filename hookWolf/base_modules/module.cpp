@@ -13,6 +13,11 @@ size_t & base::module_info::virtual_size()
 	return m_size;
 }
 
+std::wstring base::module_info::bin_name( )
+{
+	std::size_t found = full_name.find_last_of( L"/\\" );
+	return full_name.substr( found + 1 );
+}
 base::module_info::module_info(void* base_mod, size_t size, std::wstring file_name) : m_base(base_mod), m_size( size ), full_name( file_name )
 {
 	if ( tools::load_file( this ) )
@@ -109,4 +114,9 @@ IMAGE_EXPORT_DIRECTORY* base::module_info::get_st_export()
 IMAGE_NT_HEADERS* base::module_info::get_st_nt_headers()
 {
 	return m_nt_headers;
+}
+
+IMAGE_SECTION_HEADER* base::module_info::get_st_section_header( )
+{
+	return m_section_header;
 }

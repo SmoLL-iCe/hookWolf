@@ -13,9 +13,7 @@ base::modules::modules( std::vector<module_info*> v_m_modules ) : m_modules( std
 }
 
 std::vector<base::module_info*> base::modules::all_modules()
-{
-	return m_modules;
-}
+{ return m_modules; }
 
 base::module_info* base::modules::get_module(std::string mod_name)
 {

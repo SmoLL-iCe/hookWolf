@@ -32,43 +32,44 @@ bool tools::is_valid_read( void* p )
 
 bool tools::load_file( base::module_info * mod_info )
 {
-	HANDLE				h_file			= nullptr;
-	OBJECT_ATTRIBUTES	obj_atts		= { 0 };
-	IO_STATUS_BLOCK		io_stts_block	= { 0 };
-	LARGE_INTEGER		large_int		= { 0 };
-	UNICODE_STRING		uni_str			= { 0 };
-	RtlInitUnicodeString(&uni_str, ( L"\\??\\" + mod_info->path_file() ).c_str());
-	InitializeObjectAttributes( &obj_atts, &uni_str, OBJ_CASE_INSENSITIVE, nullptr, nullptr );
-	if ( !NT_SUCCESS( last_status = NtCreateFile( &h_file, FILE_READ_DATA, &obj_atts, &io_stts_block, &large_int, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE, nullptr, 0 )))
-	{
+	//HANDLE				h_file			= nullptr;
+	//OBJECT_ATTRIBUTES	obj_atts		= { 0 };
+	//IO_STATUS_BLOCK		io_stts_block	= { 0 };
+	//LARGE_INTEGER		large_int		= { 0 };
+	//UNICODE_STRING		uni_str			= { 0 };
+	//RtlInitUnicodeString(&uni_str, ( L"\\??\\" + mod_info->path_file() ).c_str());
+	//InitializeObjectAttributes( &obj_atts, &uni_str, OBJ_CASE_INSENSITIVE, nullptr, nullptr );
+	//if ( !NT_SUCCESS( last_status = NtCreateFile( &h_file, FILE_READ_DATA, &obj_atts, &io_stts_block, &large_int, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN, FILE_NON_DIRECTORY_FILE, nullptr, 0 )))
+	//{
 
-		printf("last_status %X, #%ls#\n", last_status, mod_info->path_file().c_str());
-		return false;
-	}
-	auto f_size = static_cast<SIZE_T>( GetFileSize( h_file, nullptr ) );
-	HANDLE h_section = nullptr;
-	if ( !NT_SUCCESS( last_status = NtCreateSection(&h_section, SECTION_MAP_READ | SECTION_MAP_WRITE | DELETE, nullptr, &large_int, PAGE_READONLY, SEC_COMMIT, h_file)) )
-	{ 
-		NtClose( h_file );
-		return false;
-	}
-	 void* img_base = nullptr;
-	SIZE_T view_size = 0;
-	if ( !NT_SUCCESS( last_status = NtMapViewOfSection(h_section, GetCurrentProcess(), &img_base, 0, 0, nullptr, &view_size, ViewUnmap, 0, PAGE_READONLY) ) )
-	{
-		NtClose( h_section );
-		NtClose( h_file );
-		return false;
-	}
-	view_size = 0;
-	mod_info->unmapped_img().reserve( f_size );
-	mod_info->unmapped_img().resize( f_size );
-	memcpy( mod_info->unmapped_img().data(), img_base, f_size );
-	NtUnmapViewOfSection( NtCurrentProcess(), img_base );
-	NtFreeVirtualMemory( NtCurrentProcess(), &img_base, &view_size, MEM_RELEASE );
-	NtClose( h_section );
-	NtClose( h_file );
-	return true;
+	//	printf("last_status %X, #%ls#\n", last_status, mod_info->path_file().c_str());
+	//	return false;
+	//}
+	//auto f_size = static_cast<SIZE_T>( GetFileSize( h_file, nullptr ) );
+	//HANDLE h_section = nullptr;
+	//if ( !NT_SUCCESS( last_status = NtCreateSection(&h_section, SECTION_MAP_READ | SECTION_MAP_WRITE | DELETE, nullptr, &large_int, PAGE_READONLY, SEC_COMMIT, h_file)) )
+	//{ 
+	//	NtClose( h_file );
+	//	return false;
+	//}
+	// void* img_base = nullptr;
+	//SIZE_T view_size = 0;
+	//if ( !NT_SUCCESS( last_status = NtMapViewOfSection(h_section, GetCurrentProcess(), &img_base, 0, 0, nullptr, &view_size, ViewUnmap, 0, PAGE_READONLY) ) )
+	//{
+	//	NtClose( h_section );
+	//	NtClose( h_file );
+	//	return false;
+	//}
+	//view_size = 0;
+	//mod_info->unmapped_img().reserve( f_size );
+	//mod_info->unmapped_img().resize( f_size );
+	//memcpy( mod_info->unmapped_img().data(), img_base, f_size );
+	//NtUnmapViewOfSection( NtCurrentProcess(), img_base );
+	//NtFreeVirtualMemory( NtCurrentProcess(), &img_base, &view_size, MEM_RELEASE );
+	//NtClose( h_section );
+	//NtClose( h_file );
+	//return true;
+	return utils::open_bin_file( mod_info->path_file( ), mod_info->unmapped_img( ) );
 }
 
 base::modules* tools::load_modules(HANDLE h_process)

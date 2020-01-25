@@ -11,10 +11,12 @@ namespace base
 		IMAGE_EXPORT_DIRECTORY* get_st_export();
 		size_t & virtual_size();
 		std::wstring path_file();
+		std::wstring bin_name( );
 		bool valid_pe();
 		std::vector<uint8_t>& unmapped_img();
 		uint8_t* virtual_base();
 		IMAGE_NT_HEADERS* get_st_nt_headers();
+		IMAGE_SECTION_HEADER* get_st_section_header( );
 	private:
 		bool valid				= false;
 		void* m_base			= nullptr;
