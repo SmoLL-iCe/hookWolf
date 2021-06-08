@@ -1,5 +1,5 @@
 #include "../shared.h"
-#include "../shared_class.h"
+#include "../base_modules/base_modules.h"
 #include "tools.h"
 #include "ntos.h"
 #include "utils.h"
@@ -7,26 +7,32 @@
 NTSTATUS last_status = 0;
 size_t win::virtual_query(HANDLE h_process, void* p_address, uint32_t e_class, void* p_buffer, const size_t dw_length)
 {
-	size_t  return_len = 0;
+	SIZE_T  return_len = 0;
+
 	last_status = NtQueryVirtualMemory( h_process, p_address, s_cast<MEMORY_INFORMATION_CLASS>(e_class), p_buffer, dw_length, &return_len);
+
 	return return_len;
 }
 
 bool win::rpm(HANDLE h_process, void* p_address, void* p_buffer, const size_t dw_length)
 {
-	size_t  return_len = 0;
+	SIZE_T  return_len = 0;
+
 	last_status = NtReadVirtualMemory(h_process, p_address, p_buffer, dw_length, &return_len);
+
 	return ( NT_SUCCESS( last_status ) && return_len );
 }
 
-DWORD readable = ( PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY | PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY );
-DWORD writable = ( PAGE_EXECUTE_READWRITE | PAGE_READWRITE );
-DWORD forbidden = ( PAGE_GUARD | PAGE_NOCACHE | PAGE_NOACCESS );
+DWORD readable		= ( PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY | PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY );
+DWORD writable		= ( PAGE_EXECUTE_READWRITE | PAGE_READWRITE );
+DWORD forbidden		= ( PAGE_GUARD | PAGE_NOCACHE | PAGE_NOACCESS );
 
 bool tools::is_valid_read( void* p )
 {
 	MEMORY_BASIC_INFORMATION mbi = {};
+
 	mbi.Protect = 0;
+
 	return ( win::virtual_query( GetCurrentProcess(), p, 0, &mbi, sizeof mbi ) && ( mbi.Protect & forbidden ) == 0 && ( mbi.Protect & readable ) != 0 );
 }
 
@@ -77,34 +83,49 @@ base::modules* tools::load_modules(HANDLE h_process)
 	struct
 	{
 		OBJECT_NAME_INFORMATION obj_name_info;
-		wchar_t file_name[MAX_PATH];
+
+		wchar_t file_name[ MAX_PATH ];
+
 	} file_name;
+
 	MEMORY_BASIC_INFORMATION mbi = { 0 };
-	std::vector<base::module_info*> m_modules{};
-	std::wstring last_file(L"");
-	for (uint8_t* address = nullptr;
-		win::virtual_query(h_process, address, MemoryBasicInformation, &mbi, sizeof mbi );
-		address = reinterpret_cast<uint8_t*>(mbi.BaseAddress) + mbi.RegionSize)
+
+	std::vector<base::module_info*> m_modules{ };
+
+	std::wstring last_file;
+
+	for ( uint8_t* address = nullptr;
+		win::virtual_query( h_process, address, MemoryBasicInformation, &mbi, sizeof mbi );
+		address = static_cast<uint8_t*>( mbi.BaseAddress ) + mbi.RegionSize )
 	{
+		// we just want image regions. 
 		if ( mbi.Type != MEM_IMAGE )
 			continue;
 
+		// to get the full path of the module. 
 		if ( !win::virtual_query( h_process, mbi.BaseAddress, MemoryMappedFilenameInformation, &file_name, sizeof file_name ) )
 			continue;
 
 		if ( !file_name.obj_name_info.Name.Buffer )
 			continue;
 
-		if ( !wcscmp( file_name.obj_name_info.Name.Buffer, last_file.c_str() ) )
-		{			
-			m_modules.back()->virtual_size() += mbi.RegionSize;
+		// if the same image region extends to more pages. 
+		if ( !wcscmp( file_name.obj_name_info.Name.Buffer, last_file.c_str( ) ) )
+		{
+			m_modules.back( )->virtual_size( ) += mbi.RegionSize;
+
 			continue;
 		}
+
 		last_file = file_name.obj_name_info.Name.Buffer;
-		m_modules.push_back( new base::module_info( mbi.BaseAddress , mbi.RegionSize, utils::remove_device( file_name.obj_name_info.Name.Buffer ) ) );
+
+		// save module informations
+		m_modules.push_back( new base::module_info( mbi.BaseAddress, mbi.RegionSize, utils::remove_device( file_name.obj_name_info.Name.Buffer ) ) );
+
 	}
-	if ( !m_modules.empty() )
+
+	if ( !m_modules.empty( ) )
 		return new base::modules( m_modules );
-		
+
 	return nullptr;
 }

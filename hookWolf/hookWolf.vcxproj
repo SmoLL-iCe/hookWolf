@@ -138,6 +138,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -150,15 +151,15 @@
   <ItemGroup>
     <ClCompile Include="base_modules\module.cpp" />
     <ClCompile Include="base_modules\modules.cpp" />
-    <ClCompile Include="base_modules\va_module.cpp" />
+    <ClCompile Include="base_modules\rt_module.cpp" />
     <ClCompile Include="hookWolf.cpp" />
     <ClCompile Include="tools\tools.cpp" />
     <ClCompile Include="tools\utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="base_modules\va_module.h" />
+    <ClInclude Include="base_modules\base_modules.h" />
+    <ClInclude Include="base_modules\rt_module.h" />
     <ClInclude Include="shared.h" />
-    <ClInclude Include="shared_class.h" />
     <ClInclude Include="tools\ntos.h" />
     <ClInclude Include="tools\tools.h" />
     <ClInclude Include="tools\utils.h" />
