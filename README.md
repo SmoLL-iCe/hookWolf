@@ -33,4 +33,4 @@ The basis for this to work is to compare modules at runtime with modules stored 
 [SmoLL-iCe](https://github.com/SmoLL-iCe)
 
 ### License
-[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/SmoLL-iCe/hookWolf/blob/main/LICENSE)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/SmoLL-iCe/hookWolf/blob/master/LICENSE)
