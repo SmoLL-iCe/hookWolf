@@ -194,101 +194,117 @@ void runtime::rt_module::check_export( )
 	}
 }
 
-
-
 std::vector<runtime::rt_module::expts_funcs_aligned> runtime::rt_module::align_export( IMAGE_EXPORT_DIRECTORY* export_dir )
 {
+	// the purpose of this function is to find the beginningand end of each export, in order to know if the region of this patch belongs to an export.
+
 	auto* const st_names		= va<uint32_t>( export_dir->AddressOfNames			);
 
 	auto* const st_address		= va<uint32_t>( export_dir->AddressOfFunctions		);
 
 	auto* const st_ordinals		= va<uint16_t>( export_dir->AddressOfNameOrdinals	);
 
+	// st == static / modules loaded from disk. 
+
 	std::vector<expts_funcs_aligned> m_export_passed {};
 
-	if ( !tools::is_valid_read( st_names ) || !tools::is_valid_read( st_address ) || !tools::is_valid_read( st_ordinals ) )
+	if ( !st_names || !st_address || !st_ordinals || !tools::is_valid_read( st_names ) || !tools::is_valid_read( st_address ) || !tools::is_valid_read( st_ordinals ) )
 		return m_export_passed;
 
-	if ( st_names && st_address && st_ordinals )
+	for ( auto x = 0; x < s_cast<int>( export_dir->NumberOfNames ); x++ )
 	{
-		for ( auto x = 0; x < s_cast<int>( export_dir->NumberOfNames ); x++ )
+		auto const	start_address		= ( st_address[ st_ordinals[ x ] ] );
+
+		//const char* st_name = r_cast<const char*>( m_mapped_img.data( ) + st_names[ x ] );
+
+#ifdef _WIN64
+		auto u64base	= r_cast<uint64_t>( me_mod_info->virtual_base( ) );
+
+		auto func_ptr	= u64base + start_address;
+
+		if ( auto func_data = RtlLookupFunctionEntry( func_ptr, &u64base, nullptr ) ) //often fails. 
 		{
-			auto const	start_address		= ( st_address[ st_ordinals[ x ] ] );
-
-			uint32_t	end_address			= ( 0 );
-
-			for ( auto i = 0; i < s_cast<int>( export_dir->NumberOfFunctions ); i++ )
-			{
-				if ( !tools::is_valid_read( &st_ordinals[ i ] ) )
-					return m_export_passed;
-
-				const auto ordinal			= st_ordinals[ i ];
-
-				if ( !tools::is_valid_read( &st_address[ ordinal ] ) )
-					return m_export_passed;
-
-				auto const check_address	= ( st_address[ ordinal] );
-
-				if ( start_address >= check_address )
-					continue;
-
-				if ( !end_address || check_address < end_address )
-					end_address				= check_address;
-			}
-
-			m_export_passed.push_back( { start_address, end_address, s_cast<uint32_t>( x ) } );
-
+			m_export_passed.push_back( { func_data->BeginAddress, func_data->EndAddress, s_cast<uint32_t>( x ), true } );
+			continue;
 		}
-
-		for ( auto & export_info : m_export_passed )
+#endif
+		uint32_t	end_address			= ( 0 );
+		for ( auto i = 0; i < s_cast<int>( export_dir->NumberOfFunctions ); i++ )
 		{
-			if ( !export_info.end )
-				export_info.end		= 500;
+			if ( !tools::is_valid_read( &st_ordinals[ i ] ) )
+				return m_export_passed;
 
-			auto* const s_address	= va<uint8_t>( export_info.start );
+			const auto ordinal			= st_ordinals[ i ];
 
-			const auto to_bytes		= ( export_info.end - export_info.start );
+			if ( !tools::is_valid_read( &st_address[ ordinal ] ) )
+				return m_export_passed;
 
-			auto adjusted			= false;
+			auto const check_address	= ( st_address[ ordinal] );
 
-			for ( uint32_t i = 0; i < to_bytes; i++ )
-			{
-				if ( !tools::is_valid_read( &s_address[ i + 4 ] ) )
-					goto to_break;
-
-				if ( *r_cast<uint32_t*>( &s_address[ i ] ) == 0xCCCCCCCC )
-					goto to_break;
-
-				if ( i > 100 )
-				{
-					auto* d1 = r_cast<uint8_t*>( &s_address[ i ] );
-
-					auto* d2 = r_cast<uint16_t*>( d1 );
-
-					if ( d2[0] == 0xCCCC || d2[0] == 0xCCC3 || ( d1[0] == 0xC2 && d1[2] == 0xCC ) || i >= 0x500 )
-						goto to_break;
-				}
-
+			if ( start_address >= check_address )
 				continue;
 
-			to_break:
-				export_info.end = export_info.start + ( i - 1 );
-
-				adjusted		= true;
-
-				break;
-			}
-	
-			if ( !adjusted )
-				--export_info.end;
+			if ( !end_address || check_address < end_address )
+				end_address				= check_address; // I'm saving the shortest distance from one export to another. 
 		}
+
+		m_export_passed.push_back( { start_address, end_address, s_cast<uint32_t>( x ), false } );
 	}
+
+	//here check if it is right from a distance. 
+	for ( auto & export_info : m_export_passed )
+	{
+		if ( export_info.valid ) continue;
+
+		if ( !export_info.end )
+			export_info.end		= 500; // possible end
+
+		auto* const s_address	= va<uint8_t>( export_info.start );
+
+		const auto to_bytes		= ( export_info.end - export_info.start );
+
+		auto adjusted			= false;
+
+		for ( uint32_t i = 0; i < to_bytes; i++ )
+		{
+			if ( !tools::is_valid_read( &s_address[ i + 4 ] ) ) //maybe it will end up at the end of the module. 
+				goto to_break; 
+
+			if ( *r_cast<uint32_t*>( &s_address[ i ] ) == 0xCCCCCCCC ) 
+				goto to_break;// align found, gg
+
+			if ( i > 100 ) // after 100, it starts to consider minor alignments or returns. 
+			{
+				auto* d1 = r_cast<uint8_t*>( &s_address[ i ] );
+
+				auto* d2 = r_cast<uint16_t*>( d1 );
+				// it may be a little uncertain, but that's we have for today. 
+				// remembering that this is for cases that failed the RtlLookupFunctionEntry; 
+
+				if ( d2[0] == 0xCCCC || d2[0] == 0xCCC3 || ( d1[0] == 0xC2 && d1[2] == 0xCC ) || i >= 0x500 ) //possible terminations; 
+					goto to_break;
+			}
+
+			continue;
+
+		to_break:
+			export_info.end = export_info.start + ( i - 1 ); // new termination
+
+			adjusted		= true;
+
+			break;
+		}
+	
+		if ( !adjusted )
+			--export_info.end;
+	}
+	
 	return m_export_passed;
 }
 
-void runtime::rt_module::check_sections( )
+void runtime::rt_module::check_code_section( )
 {
-	
+	// the maximum changed bytes that will be displayed 
 	const uint32_t display_patch_limit	= 16;
 
 	auto* const static_nt_headers		= me_mod_info->get_st_nt_headers( );
@@ -307,12 +323,12 @@ void runtime::rt_module::check_sections( )
 
 		auto section_name				= std::string( r_cast<const char*>( &va_section.Name[ 0 ] ) );
 
-		auto section_lower_name			= utils::str_lower( section_name );
+		auto const section_lower_name	= utils::str_lower( section_name );
 		
-		if ( !strstr( section_lower_name.c_str( ), "text" ) && !strstr( section_lower_name.c_str( ), "code" ) )
+		if ( !strstr( section_lower_name.c_str( ), "text" ) && !strstr( section_lower_name.c_str( ), "code" ) ) // code section
 			continue;
 
-		if ( !va_section.SizeOfRawData || !st_section.SizeOfRawData || ( va_section.SizeOfRawData != st_section.SizeOfRawData ) )
+		if ( !va_section.SizeOfRawData || !st_section.SizeOfRawData || ( va_section.SizeOfRawData != st_section.SizeOfRawData ) ) // same sections size
 			continue;
 
 		auto* const va_section_ptr		= m_mapped_img.data( ) + va_section.VirtualAddress;
@@ -330,38 +346,39 @@ void runtime::rt_module::check_sections( )
 			const char* name		= nullptr;
 		};
 
-		std::vector<patchs> n_patchs {};
+		std::vector<patchs> n_patches {};
 
 		uint32_t init = 0;
 
-		for ( uint32_t i = 0, changed = 0, equal = 0; i < st_section.SizeOfRawData; i++ )
+		for ( uint32_t i = 0, changed = 0, equal = 0; i < st_section.SizeOfRawData; i++ ) 
 		{
-			if ( va_section_ptr[ i ] != st_section_ptr[ i ] )
+			if ( va_section_ptr[ i ] != st_section_ptr[ i ] )// compare byte to byte 
 			{
 				if ( !changed )
-					init = i;
+					init = i; // save init point
 
-				++changed;
+				++changed; // remains modified. 
 
-				equal = 0;
+				equal = 0; // no more equal
 
 			}
-			else 
+			else // equal
 			{
-				if ( changed && equal >= 5)
+				// it could be that some byte is equal within the modification, so it expects those equals to be greater than 5 to make sure that modification ends here. 
+				if ( changed && equal >= 5) 
 				{
-					n_patchs.push_back( { init, i - equal } );
+					n_patches.push_back( { init, i - equal } );
 
 					init = changed = 0;
 				}
-				++equal;
+				++equal; // ...
 			}
 		}
 
-		if ( init )
-			n_patchs.push_back( { init, st_section.SizeOfRawData } );
+		if ( init ) // if it has not come to an end. 
+			n_patches.push_back( { init, st_section.SizeOfRawData } );
 
-		if ( n_patchs.empty( ) )
+		if ( n_patches.empty( ) ) 
 			return;
 
 		const auto	export_info		= m_nt_headers->OptionalHeader.DataDirectory[ IMAGE_DIRECTORY_ENTRY_EXPORT ];
@@ -379,9 +396,9 @@ void runtime::rt_module::check_sections( )
 		{
 			auto* const st_names = va<uint32_t>( export_dir->AddressOfNames );
 
-			for ( auto& patch : n_patchs )
+			for ( auto& patch : n_patches )
 			{
-				for (const auto expt_aligned : expts_aligned )
+				for (const auto &expt_aligned : expts_aligned )
 				{
 					const auto start	= ( va_section.VirtualAddress + patch.index_start );
 
@@ -401,14 +418,14 @@ void runtime::rt_module::check_sections( )
 			std::vector<expts_funcs_aligned>( ).swap( expts_aligned );
 		}
 
-		for (const auto &patch : n_patchs )
+		for (const auto &patch : n_patches )
 		{
 
 			if ( patch.name )
 			{
 				const auto start			= ( va_section.VirtualAddress	+ patch.index_start );
 
-				auto end					= ( va_section.VirtualAddress	+ patch.index_end	);
+				const auto end				= ( va_section.VirtualAddress	+ patch.index_end	);
 
 				const auto total_bytes		= ( patch.index_end				- patch.index_start );
 

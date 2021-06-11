@@ -14,11 +14,12 @@ namespace runtime
 
 		void check_export( );
 
-		void check_sections( );
+		void check_code_section( );
 
 		bool valid_pe( ) const;
 
 	private:
+
 		struct expts_funcs_aligned
 		{
 			uint32_t start	= 0;
@@ -26,7 +27,10 @@ namespace runtime
 			uint32_t end	= 0;
 
 			uint32_t index	= 0;
+
+			bool valid		= false;
 		};
+
 		std::vector<uint8_t>	m_mapped_img{};
 
 		bool valid									= false;
@@ -40,7 +44,7 @@ namespace runtime
 		base::module_info*		me_mod_info			= nullptr;
 
 		template<typename T>
-		__forceinline T* va(const unsigned long offset);
+		__forceinline T* va( const unsigned long offset );
 
 
 		/// <summary>

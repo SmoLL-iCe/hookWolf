@@ -7,6 +7,8 @@
 
 int main()
 {
+	SetConsoleTitle( L"hookWolf v1.0" );
+
 	std::cout << "hookWolf v1.0 \n\n";
 
 	std::wstring proc{ };
@@ -70,7 +72,7 @@ int main()
 
 		std::cout << "sections scan ...\n";
 
-		runtime_mod->check_sections( );
+		runtime_mod->check_code_section( );
 	}
 
 	modules->clean( );
