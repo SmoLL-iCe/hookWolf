@@ -100,8 +100,9 @@ void runtime::rt_module::check_import( base::modules* m_modules )
 				auto* const img_impt_name	= r_cast<IMAGE_IMPORT_BY_NAME*>( m_mapped_img.data( ) + *r_cast<uint32_t*>( image_thunk_data ) );
 
 				func_name					= s_cast<char*>( img_impt_name->Name );
-				//if ( !tools::is_valid_read( func_name ) )
-				//	continue;
+
+				if ( !tools::is_valid_read( func_name ) )
+					continue;
 				func_offset					= m_module->get_unmapped_export_offset( func_name );
 
 			}

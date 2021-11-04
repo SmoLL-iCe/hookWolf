@@ -80,11 +80,14 @@ uint8_t* base::module_info::virtual_base( ) const
 
 uint32_t base::module_info::get_unmapped_export_offset( const char* func_name )
 {
+	if ( !func_name )
+		return 0;
+
 	ULONG size = 0;
 
 	auto* const export_dir	= s_cast<PIMAGE_EXPORT_DIRECTORY>( ImageDirectoryEntryToData( m_unmapped_img.data( ), FALSE, IMAGE_DIRECTORY_ENTRY_EXPORT, &size ) );
 
-	if ( !export_dir )
+	if ( !export_dir || !size )
 		return 0;
 
 	auto* const names		= va<uint32_t>( export_dir->AddressOfNames			);
@@ -99,10 +102,12 @@ uint32_t base::module_info::get_unmapped_export_offset( const char* func_name )
 	for ( auto i = 0; i < s_cast<int>( export_dir->NumberOfNames ); i++ )
 	{
 
-		const auto* const name = va<const char>( names[ i ] );
+		auto ord = ordinals[ i ];
 
-		if ( name && strcmp( name, func_name ) == 0 && ordinals[ i ] <= export_dir->NumberOfFunctions )
-			return address[ ordinals[ i ] ];
+		const auto* name = va<const char>( names[ i ] );
+
+		if ( name && strcmp( func_name, name ) == 0 )
+			return address[ ord ];
 	}
 
 	return 0;
